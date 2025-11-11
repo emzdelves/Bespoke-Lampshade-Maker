@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lampshade Pattern Designer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .container {
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        /* Custom print style for pattern guide */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printArea, #printArea * {
+                visibility: visible;
+            }
+            #printArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 1cm;
+                color: #000;
+                font-size: 12pt;
+            }
+            /* Hide the print button when printing */
+            #print-guide-btn {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+<div class="container mx-auto max-w-lg">
+    <header class="text-center py-6 bg-white shadow-lg rounded-xl mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Shade Pattern Calculator</h1>
+        <p class="text-sm text-gray-500 mt-1">For Conical and Cylindrical Lampshades</p>
+    </header>
+
+    <div id="input-card" class="bg-white p-6 rounded-xl shadow-lg mb-6">
+        <h2 class="text-xl font-semibold mb-4 text-indigo-600">Enter Measurements</h2>
+        
+        <!-- Units Selection -->
+        <div class="mb-4">
+            <label for="units" class="block text-sm font-medium text-gray-700">Measurement Unit</label>
+            <select id="units" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                <option value="in">Inches (in)</option>
+                <option value="mm">Millimeters (mm)</option>
+                <option value="cm">Centimeters (cm)</option>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <!-- Top Diameter -->
+            <div class="mb-4">
+                <label for="top-diameter" class="block text-sm font-medium text-gray-700">Top Diameter (D1)</label>
+                <input type="number" id="top-diameter" value="150" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" step="any" required>
+            </div>
+            
+            <!-- Bottom Diameter -->
+            <div class="mb-4">
+                <label for="bottom-diameter" class="block text-sm font-medium text-gray-700">Bottom Diameter (D2)</label>
+                <input type="number" id="bottom-diameter" value="200" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" step="any" required>
+            </div>
+        </div>
+
+        <!-- Vertical Height -->
+        <div class="mb-4">
+            <label for="vertical-height" class="block text-sm font-medium text-gray-700">Vertical Height (h)</label>
+            <input type="number" id="vertical-height" value="200" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" step="any" required>
+        </div>
+
+        <!-- Seam Allowance -->
+        <div class="mb-6">
+            <label for="seam-allowance" class="block text-sm font-medium text-gray-700">Seam/Overlap Allowance</label>
+            <input type="number" id="seam-allowance" value="15" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" step="any" required>
+        </div>
+
+        <button id="calculate-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
+            Calculate Pattern
+        </button>
+    </div>
+
+    <!-- Results Area -->
+    <div id="results-card" class="bg-white p-6 rounded-xl shadow-lg hidden">
+        <h2 class="text-xl font-semibold mb-4 text-green-600">Pattern Measurements</h2>
+        <div id="results-display" class="space-y-3">
+            <!-- Results will be injected here -->
+        </div>
+        
+        <button id="print-guide-btn" class="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
+            Print Pattern Guide
+        </button>
+    </div>
+
+    <!-- Area for Print View Content -->
+    <div id="printArea" class="hidden"></div>
+</div>
+
+<script>
+    // Constants and Elements
+    const pi = Math.PI;
+    const calculateBtn = document.getElementById('calculate-btn');
+    const resultsCard = document.getElementById('results-card');
+    const resultsDisplay = document.getElementById('results-display');
+    const printGuideBtn = document.getElementById('print-guide-btn');
+    const printArea = document.getElementById('printArea');
+
+    // Function to calculate the lampshade pattern geometry
+    function calculatePattern(d1, d2, h, seam) {
+        const r1 = d1 / 2; // Top radius
+        const r2 = d2 / 2; // Bottom radius
+        
+        // --- Cylindrical Lampshade (d1 = d2) ---
+        if (d1 === d2) {
+            const circumference = 2 * pi * r1;
+            const patternWidth = circumference + seam;
+            const patternHeight = h;
+            
+            return {
+                type: 'Cylinder',
+                width: patternWidth,
+                height: patternHeight,
+                seam: seam
+            };
+        }
+
+        // --- Conical Lampshade (d1 != d2) ---
+        
+        // 1. Calculate Slant Height (S) using Pythagorean theorem: S = sqrt(h^2 + (r2 - r1)^2)
+        const radiusDiff = Math.abs(r2 - r1);
+        const S = Math.sqrt(h * h + radiusDiff * radiusDiff);
+
+        // 2. Calculate Radii of the Annulus (R1, R2)
+        // R2 is the radius from the cone's virtual apex to the bottom edge.
+        // Formula derived from similar triangles: r2 / R2 = (r2 - r1) / S
+        const R2 = (r2 * S) / radiusDiff;
+        const R1 = R2 - S; // R1 is the distance from the apex to the top edge.
+
+        // 3. Calculate Sector Angle (Theta)
+        // Arc length (A2) must equal the circumference of the bottom circle (C2).
+        // A2 = R2 * Theta (in radians); C2 = 2 * pi * r2
+        // Theta_rad = (2 * pi * r2) / R2
+        const thetaRad = (2 * pi * r2) / R2;
+        const thetaDeg = (thetaRad * 180) / pi;
+
+        // 4. Calculate Final Pattern Arc Lengths (for checking)
+        const patternOuterArc = thetaRad * R2 + seam;
+        const patternInnerArc = thetaRad * R1 + seam;
+
+
+        return {
+            type: 'Cone',
+            S: S, // Slant Height
+            R1: R1, // Inner Arc Radius
+            R2: R2, // Outer Arc Radius
+            ThetaDeg: thetaDeg, // Sector Angle in Degrees
+            OuterArc: patternOuterArc,
+            InnerArc: patternInnerArc,
+            seam: seam
+        };
+    }
+
+    // Function to render the results
+    function renderResults(result) {
+        const unit = document.getElementById('units').value;
+        let html = '';
+
+        const format = (value) => value.toFixed(2);
+        const sectionClass = "p-3 bg-gray-50 rounded-lg";
+        const labelClass = "text-sm font-medium text-gray-500";
+        const valueClass = "text-lg font-bold text-gray-900";
+
+        if (result.type === 'Cylinder') {
+            // --- CYLINDRICAL RESULTS ---
+            html = `
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Pattern Type</p>
+                    <p class="${valueClass} text-indigo-700">Cylinder (Rectangle)</p>
+                </div>
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Pattern Width (Circumference + Seam)</p>
+                    <p class="${valueClass}">${format(result.width)} ${unit}</p>
+                    <p class="text-xs text-gray-400">Length of the fabric piece</p>
+                </div>
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Pattern Height</p>
+                    <p class="${valueClass}">${format(result.height)} ${unit}</p>
+                    <p class="text-xs text-gray-400">Height of the fabric piece</p>
+                </div>
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Seam Allowance Used</p>
+                    <p class="${valueClass}">${format(result.seam)} ${unit}</p>
+                </div>
+            `;
+
+            // Setup print content for Cylinder
+            printArea.innerHTML = generateCylinderPrintGuide(result, unit);
+
+        } else {
+            // --- CONICAL RESULTS (Trapezoid/Annulus Segment) ---
+            html = `
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Pattern Type</p>
+                    <p class="${valueClass} text-indigo-700">Cone (Annulus Segment)</p>
+                </div>
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Slant Height (S)</p>
+                    <p class="${valueClass}">${format(result.S)} ${unit}</p>
+                    <p class="text-xs text-gray-400">Distance between top and bottom edges.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="${sectionClass}">
+                        <p class="${labelClass}">Inner Arc Radius (R1)</p>
+                        <p class="${valueClass}">${format(result.R1)} ${unit}</p>
+                        <p class="text-xs text-gray-400">Radius to the top edge.</p>
+                    </div>
+                    <div class="${sectionClass}">
+                        <p class="${labelClass}">Outer Arc Radius (R2)</p>
+                        <p class="${valueClass}">${format(result.R2)} ${unit}</p>
+                        <p class="text-xs text-gray-400">Radius to the bottom edge.</p>
+                    </div>
+                </div>
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Sector Angle (Theta, θ)</p>
+                    <p class="${valueClass} text-red-600">${format(result.ThetaDeg)}°</p>
+                    <p class="text-xs text-gray-400">The angle needed to complete the shape.</p>
+                </div>
+                <div class="${sectionClass}">
+                    <p class="${labelClass}">Total Pattern Arc Length (Outer)</p>
+                    <p class="${valueClass}">${format(result.OuterArc)} ${unit}</p>
+                    <p class="text-xs text-gray-400">Outer circumference plus seam.</p>
+                </div>
+            `;
+            
+            // Setup print content for Cone
+            printArea.innerHTML = generateConePrintGuide(result, unit);
+        }
+
+        resultsDisplay.innerHTML = html;
+        resultsCard.classList.remove('hidden');
+    }
+
+    // Function to generate the HTML for the printable guide (Cone)
+    function generateConePrintGuide(result, unit) {
+        const format = (value) => value.toFixed(2);
+        return `
+            <h1 style="text-align: center; font-size: 24pt; margin-bottom: 20pt;">Lampshade Pattern Guide (Conical)</h1>
+            <p style="margin-bottom: 10pt;">These are the measurements required to draw your lampshade pattern onto your material. The pattern is a segment of an annulus (like a large Pac-Man shape).</p>
+
+            <h2 style="font-size: 18pt; margin-top: 15pt; border-bottom: 1px solid #ccc; padding-bottom: 5pt;">Key Measurements</h2>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10pt;">
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Pattern Type</td><td style="padding: 5pt; border: 1px solid #eee;">Conical (Annulus Segment)</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Units Used</td><td style="padding: 5pt; border: 1px solid #eee;">${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Slant Height (S)</td><td style="padding: 5pt; border: 1px solid #eee;">${format(result.S)} ${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold; color: #1e40af;">Inner Arc Radius (R1)</td><td style="padding: 5pt; border: 1px solid #eee; color: #1e40af; font-size: 14pt;">${format(result.R1)} ${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold; color: #9a3412;">Outer Arc Radius (R2)</td><td style="padding: 5pt; border: 1px solid #eee; color: #9a3412; font-size: 14pt;">${format(result.R2)} ${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Sector Angle (θ)</td><td style="padding: 5pt; border: 1px solid #eee; font-size: 14pt;">${format(result.ThetaDeg)}° (Degrees)</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Seam Allowance</td><td style="padding: 5pt; border: 1px solid #eee;">${format(result.seam)} ${unit}</td></tr>
+            </table>
+
+            <h2 style="font-size: 18pt; margin-top: 15pt; border-bottom: 1px solid #ccc; padding-bottom: 5pt;">How to Draw the Pattern</h2>
+            <ol style="margin-left: 20pt; padding: 0;">
+                <li style="margin-bottom: 10pt;">Find the central **Apex Point (P)**, which is the origin for your radii.</li>
+                <li style="margin-bottom: 10pt;">Using a large compass or string, draw the **Outer Arc (Bottom Edge)** with radius **R2 (${format(result.R2)} ${unit})** from point P.</li>
+                <li style="margin-bottom: 10pt;">Draw the **Inner Arc (Top Edge)** with radius **R1 (${format(result.R1)} ${unit})** from point P.</li>
+                <li style="margin-bottom: 10pt;">Draw one **Straight Edge** from the apex P to the Outer Arc.</li>
+                <li style="margin-bottom: 10pt;">Measure the **Sector Angle (θ)** of **${format(result.ThetaDeg)}°** from the first straight edge to draw the second straight edge. The curved piece between the two straight edges is your lampshade pattern.</li>
+                <li style="margin-bottom: 10pt;">Finally, add the **Seam Allowance (${format(result.seam)} ${unit})** to one of the straight sides of the pattern for overlap.</li>
+            </ol>
+            <p style="text-align: center; margin-top: 20pt; font-style: italic;">Save this guide before you print the pattern.</p>
+        `;
+    }
+
+    // Function to generate the HTML for the printable guide (Cylinder)
+    function generateCylinderPrintGuide(result, unit) {
+        const format = (value) => value.toFixed(2);
+        return `
+            <h1 style="text-align: center; font-size: 24pt; margin-bottom: 20pt;">Lampshade Pattern Guide (Cylindrical)</h1>
+            <p style="margin-bottom: 10pt;">Since your top and bottom diameters are equal, the pattern is a simple rectangle.</p>
+
+            <h2 style="font-size: 18pt; margin-top: 15pt; border-bottom: 1px solid #ccc; padding-bottom: 5pt;">Key Measurements</h2>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10pt;">
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Pattern Type</td><td style="padding: 5pt; border: 1px solid #eee;">Cylinder (Rectangle)</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Units Used</td><td style="padding: 5pt; border: 1px solid #eee;">${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold; color: #9a3412;">Pattern Width (W)</td><td style="padding: 5pt; border: 1px solid #eee; color: #9a3412; font-size: 14pt;">${format(result.width)} ${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold; color: #1e40af;">Pattern Height (H)</td><td style="padding: 5pt; border: 1px solid #eee; color: #1e40af; font-size: 14pt;">${format(result.height)} ${unit}</td></tr>
+                <tr><td style="padding: 5pt; border: 1px solid #eee; font-weight: bold;">Seam Allowance</td><td style="padding: 5pt; border: 1px solid #eee;">${format(result.seam)} ${unit}</td></tr>
+            </table>
+
+            <h2 style="font-size: 18pt; margin-top: 15pt; border-bottom: 1px solid #ccc; padding-bottom: 5pt;">How to Draw the Pattern</h2>
+            <ol style="margin-left: 20pt; padding: 0;">
+                <li style="margin-bottom: 10pt;">Draw a rectangle with a width of **${format(result.width)} ${unit}** and a height of **${format(result.height)} ${unit}**.</li>
+                <li style="margin-bottom: 10pt;">The extra width is your seam allowance. The height is the exact vertical height of your shade.</li>
+                <li style="margin-bottom: 10pt;">Cut out this rectangle from your material.</li>
+            </ol>
+            <p style="text-align: center; margin-top: 20pt; font-style: italic;">Save this guide before you print the pattern.</p>
+        `;
+    }
+
+    // Main calculation and event handler
+    function handleCalculate() {
+        const d1 = parseFloat(document.getElementById('top-diameter').value);
+        const d2 = parseFloat(document.getElementById('bottom-diameter').value);
+        const h = parseFloat(document.getElementById('vertical-height').value);
+        const seam = parseFloat(document.getElementById('seam-allowance').value);
+
+        if (isNaN(d1) || isNaN(d2) || isNaN(h) || isNaN(seam) || d1 <= 0 || d2 <= 0 || h <= 0) {
+            resultsDisplay.innerHTML = '<p class="text-red-600 font-medium">Please enter valid, positive numbers for all measurements.</p>';
+            resultsCard.classList.remove('hidden');
+            return;
+        }
+
+        // Ensure D2 is the larger diameter for consistent conical calculation
+        const topD = Math.min(d1, d2);
+        const bottomD = Math.max(d1, d2);
+
+        try {
+            const results = calculatePattern(topD, bottomD, h, seam);
+            renderResults(results);
+        } catch (error) {
+            console.error("Calculation Error:", error);
+            resultsDisplay.innerHTML = '<p class="text-red-600 font-medium">An error occurred during calculation. Please check your inputs.</p>';
+            resultsCard.classList.remove('hidden');
+        }
+    }
+
+    // Event Listeners
+    calculateBtn.addEventListener('click', handleCalculate);
+    printGuideBtn.addEventListener('click', () => {
+        // This triggers the custom @media print CSS to show only #printArea
+        window.print();
+    });
+
+    // Initial calculation on load (to show the example)
+    window.onload = handleCalculate;
+
+</script>
+
+</body>
+</html>
